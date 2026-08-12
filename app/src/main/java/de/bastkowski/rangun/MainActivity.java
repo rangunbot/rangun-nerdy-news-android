@@ -10,11 +10,14 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
 public class MainActivity extends Activity {
 
     private static final String URL = "http://news.digitalstep.de/";
 
     private WebView web;
+    private SwipeRefreshLayout swipe;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -27,7 +30,14 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                if (swipe != null) {
+                    swipe.setRefreshing(false);
+                }
+            }
+        });
 
         // WebView ignores its own padding, so host it in a padded container.
         // Android 15+ (targetSdk 35) draws edge-to-edge: keep the page below the
@@ -36,7 +46,17 @@ public class MainActivity extends Activity {
         container.addView(web, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
-        setContentView(container);
+
+        // Pull-to-refresh: swipe down at the top of the page reloads it.
+        swipe = new SwipeRefreshLayout(this);
+        swipe.addView(container, new SwipeRefreshLayout.LayoutParams(
+                SwipeRefreshLayout.LayoutParams.MATCH_PARENT,
+                SwipeRefreshLayout.LayoutParams.MATCH_PARENT));
+        swipe.setOnRefreshListener(() -> web.reload());
+        // Only trigger when the page itself is scrolled to the top (the direct
+        // child of SwipeRefreshLayout is the non-scrollable container).
+        swipe.setOnChildScrollUpCallback((parent, child) -> web.canScrollVertically(-1));
+        setContentView(swipe);
 
         getWindow().getDecorView().setOnApplyWindowInsetsListener((v, insets) -> {
             int top, bottom;
